@@ -3,25 +3,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
 import os
-import random
-import asyncio
-import time
 
 app = FastAPI()
 
-# CORS — только ваши домены
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://crash-finerx.netlify.app",
-        "https://web.telegram.org"
-    ],
+    allow_origins=["https://crash-finerx.netlify.app", "https://web.telegram.org"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Простая модель
+# Модель
 class AuthRequest(BaseModel):
     name: str
     password: str
@@ -34,31 +28,15 @@ def load_data():
         try:
             with open(DATA_FILE, "r") as f:
                 return json.load(f)
-        except Exception:
+        except:
             pass
-    return {
-        "users": {},
-        "promo_codes": {"2026": {"amount": 500, "used": []}},
-        "top_x": [],
-        "x_history": [],
-    }
+    return {"users": {}, "promo_codes": {}}
 
 def save_data(data):
-    try:
-        with open(DATA_FILE, "w") as f:
-            json.dump(data, f, indent=2)
-    except Exception as e:
-        print("⚠️ Save error:", e)
+    with open(DATA_FILE, "w") as f:
+        json.dump(data, f, indent=2)
 
-# Игровое состояние
-current_round = {"status": "bet", "multiplier": 1.0, "bet_time": 6, "bets": []}
-
-# Упрощённый раунд (без фонового цикла — для отладки)
-@app.get("/api/round")
-def get_round():
-    return current_round
-
-# Простейшая авторизация — без game_loop!
+# Эндпоинты
 @app.post("/api/auth/register")
 def register(auth: AuthRequest):
     data = load_data()
@@ -72,7 +50,7 @@ def register(auth: AuthRequest):
 def login(auth: AuthRequest, response: Response):
     data = load_data()
     if auth.name not in data["users"] or data["users"][auth.name]["pass"] != auth.password:
-        raise HTTPException(400, "Ошибка входа")
+        raise HTTPException(400, "Ошибка")
     response.set_cookie(key="session", value=auth.name, httponly=True, max_age=86400)
     return {"status": "ok"}
 
@@ -88,7 +66,7 @@ def get_user(request: Request):
     user.pop("pass", None)
     return user
 
-# Health check — для Render
+# Health check — критически важен для проверки!
 @app.get("/health")
 def health():
-    return {"status": "ok", "message": "Server is running"}
+    return {"status": "ok", "message": "Ready for game logic"}
