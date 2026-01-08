@@ -9,7 +9,7 @@ import time
 
 app = FastAPI()
 
-# CORS — ТОЛЬКО Netlify (временно)
+# CORS — только Netlify (для Telegram добавите позже)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://crash-finerx.netlify.app"],
@@ -57,7 +57,7 @@ def load_data():
         },
         "top_x": [],
         "x_history": [],
-        "admin_password": "supersecret"
+        "admin_password": "supersecret"  # ← СМЕНИТЕ!
     }
 
 def save_data(data):
@@ -67,17 +67,17 @@ def save_data(data):
     except Exception as e:
         print("⚠️ Save error:", e)
 
-# Игровое состояние
+# Глобальное состояние игры
 current_round = {
     "id": 1,
     "status": "bet",
     "bets": [],
     "crash_at": None,
     "multiplier": 1.0,
-    "started_at": None,
+    "started_at": None,  # ← КЛЮЧЕВОЕ: изначально None
     "bet_time": 6,
 }
-# Генерация краша
+# Генерация точки краша
 def generate_crash_point():
     r = random.random()
     if r < 0.80:
@@ -104,10 +104,12 @@ async def game_loop():
                 if current_round["bet_time"] <= 0:
                     current_round["status"] = "flight"
                     current_round["crash_at"] = generate_crash_point()
-                    current_round["started_at"] = time.time()
+                    current_round["started_at"] = time.time()  # ← УСТАНАВЛИВАЕТСЯ ТОЛЬКО ЗДЕСЬ
                     current_round["multiplier"] = 1.0
 
             elif current_round["status"] == "flight":
+                if current_round["started_at"] is None:
+                    current_round["started_at"] = time.time()  # ← Защита от бага
                 elapsed = time.time() - current_round["started_at"]
                 current_round["multiplier"] = calculate_multiplier(elapsed)
                 if current_round["multiplier"] >= current_round["crash_at"]:
@@ -129,7 +131,7 @@ async def game_loop():
                         "bets": [],
                         "crash_at": None,
                         "multiplier": 1.0,
-                        "started_at": None,
+                        "started_at": None,  # ← СБРОС
                         "bet_time": 6,
                     }
             await asyncio.sleep(0.5)
@@ -166,7 +168,7 @@ def place_bet(request: Request, bet: BetRequest):
     save_data(data)
     return {"status": "ok"}
 
-@app.post("/api/round/cashout")
+@app.post("/api/round/cashout")  # ← POST, а не GET!
 def cash_out(request: Request):
     session = request.cookies.get("session")
     if not session:
@@ -213,8 +215,8 @@ def login(auth: AuthRequest, response: Response):
         key="session",
         value=auth.name,
         httponly=True,
-        secure=True,        # ← обязательно
-        samesite="none",    # ← КЛЮЧЕВОЕ ИЗМЕНЕНИЕ!
+        secure=True,        # ← обязательно для HTTPS
+        samesite="none",    # ← разрешает куки между доменами
         max_age=86400
     )
     return {"status": "ok"}
@@ -280,6 +282,15 @@ def top_balance():
     return sorted(
         [{"name": n, "balance": u["balance"]} for n, u in data["users"].items()],
         key=lambda x: x["balance"],
+        reverse=True
+    )[:20]
+
+@app.get("/api/top/level")
+def top_level():
+    data = load_data()
+    return sorted(
+        [{"name": n, "level": u.get("level", 0)} for n, u in data["users"].items()],
+        key=lambda x: x["level"],
         reverse=True
     )[:20]
 
