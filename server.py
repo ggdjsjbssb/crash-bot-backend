@@ -10,10 +10,13 @@ import time
 
 app = FastAPI()
 
-# Настройка CORS — разрешаем запросы с твоего Netlify
+# Настройка CORS — временно разрешаем всё для отладки
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://crash-finerx.netlify.app", "https://t.me"],
+    allow_origins=[
+        "https://crash-finerx.netlify.app",
+        "https://web.telegram.org"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,7 +25,7 @@ app.add_middleware(
 # =============== МОДЕЛИ ===============
 class AuthRequest(BaseModel):
     name: str
-    pass: str
+    password: str  # ← "pass" — зарезервированное слово, лучше не использовать
 
 class BetRequest(BaseModel):
     amount: float
@@ -38,7 +41,6 @@ class AdminAction(BaseModel):
     amount: float
 
 # =============== ХРАНИЛИЩЕ ДАННЫХ ===============
-# В продакшене — замени на PostgreSQL
 DATA_FILE = "crash_data.json"
 
 def load_data():
@@ -54,8 +56,8 @@ def load_data():
             "+10": {"amount": 250, "used": []},
             "250": {"amount": 250, "used": []},
         },
-        "rounds": [],
         "top_x": [],
+        "x_history": [],
         "admin_password": "supersecret"  # ← СМЕНИ ЭТО!
     }
 
@@ -63,7 +65,7 @@ def save_data(data):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
-# =============== ИГРОВАЯ ЛОГИКА ===============
+# =============== ГЛОБАЛЬНОЕ СОСТОЯНИЕ ИГРЫ ===============
 current_round = {
     "id": 1,
     "status": "bet",  # bet / flight / crash
@@ -72,8 +74,20 @@ current_round = {
     "multiplier": 1.0,
     "started_at": None,
     "bet_time": 6,
-    "x_history": []
 }
+
+# =============== ИГРОВАЯ ЛОГИКА ===============
+def generate_crash_point():
+    r = random.random()
+    if r < 0.80:
+        return round(1 + random.random() * 1.5, 2)
+    elif r < 0.98:
+        return round(2.5 + random.random() * 47.5, 2)
+    else:
+        return round(50 + random.random() * 250, 2)
+
+def calculate_multiplier(elapsed):
+    return round(1 + elapsed * 2, 2)
 
 async def game_loop():
     global current_round
@@ -89,24 +103,33 @@ async def game_loop():
                 current_round["multiplier"] = 1.0
 
         elif current_round["status"] == "flight":
-            # Обновляем множитель
             elapsed = time.time() - current_round["started_at"]
             current_round["multiplier"] = calculate_multiplier(elapsed)
-            
-            # Проверяем краш
             if current_round["multiplier"] >= current_round["crash_at"]:
+                # Краш произошёл
                 current_round["status"] = "crash"
-                # Сохраняем в историю
+                crash_x = current_round["crash_at"]
+
+                # Сохраняем историю X
                 data = load_data()
-                data["top_x"].append({
-                    "name": bet["name"],
-                    "x": current_round["crash_at"]
-                } for bet in current_round["bets"] if not bet.get("cashed"))
-                data["x_history"].insert(0, current_round["crash_at"])
+                data["x_history"].insert(0, crash_x)
                 if len(data["x_history"]) > 20:
                     data["x_history"] = data["x_history"][:20]
+
+                # Сохраняем top_x (ТОП по краш-множителям)
+                for bet in current_round["bets"]:
+                    if not bet.get("cashed"):
+                        data["top_x"].append({
+                            "name": bet["name"],
+                            "x": crash_x
+                        })
+                # Ограничиваем историю (опционально)
+                if len(data["top_x"]) > 100:
+                    data["top_x"] = data["top_x"][-100:]
+
                 save_data(data)
-                # Начинаем новый раунд через 5 сек
+
+                # Ждём 5 сек и начинаем новый раунд
                 await asyncio.sleep(5)
                 current_round = {
                     "id": current_round["id"] + 1,
@@ -116,23 +139,9 @@ async def game_loop():
                     "multiplier": 1.0,
                     "started_at": None,
                     "bet_time": 6,
-                    "x_history": data["x_history"]
                 }
 
         await asyncio.sleep(0.5)
-
-def generate_crash_point():
-    r = random.random()
-    if r < 0.80:
-        return round(1 + random.random() * 1.5, 2)
-    elif r < 0.98:
-        return round(2.5 + random.random() * 47.5, 2)
-    else:
-        return round(50 + random.random() * 250, 2)
-
-def calculate_multiplier(elapsed):
-    # Простая линейная модель для демо
-    return round(1 + elapsed * 2, 2)
 
 # =============== ЭНДПОИНТЫ ===============
 @app.on_event("startup")
@@ -147,7 +156,8 @@ async def get_round():
         "multiplier": current_round["multiplier"],
         "bet_time": current_round["bet_time"],
         "bets": current_round["bets"],
-        "xHistory": current_round.get("x_history", data.get("x_history", []))
+        "crashX": current_round.get("crash_at"),
+        "xHistory": data.get("x_history", []),
     }
 
 @app.post("/api/round/bet")
@@ -184,7 +194,6 @@ async def cash_out(request: Request):
     if current_round["status"] != "flight":
         raise HTTPException(status_code=400, detail="Нельзя вывести")
     
-    # Находим ставку игрока
     bet = next((b for b in current_round["bets"] if b["name"] == session and not b["cashed"]), None)
     if not bet:
         raise HTTPException(status_code=400, detail="Нет активной ставки")
@@ -192,7 +201,6 @@ async def cash_out(request: Request):
     win = bet["amount"] * current_round["multiplier"]
     bet["cashed"] = True
     
-    # Обновляем баланс и прогресс
     data = load_data()
     user = data["users"][session]
     user["balance"] += win
@@ -207,13 +215,13 @@ async def cash_out(request: Request):
 
 @app.post("/api/auth/register")
 async def register(auth: AuthRequest):
-    if not auth.name or not auth.pass:
+    if not auth.name or not auth.password:
         raise HTTPException(status_code=400, detail="Введите имя и пароль")
     data = load_data()
     if auth.name in data["users"]:
         raise HTTPException(status_code=400, detail="Игрок существует")
     data["users"][auth.name] = {
-        "pass": auth.pass,
+        "pass": auth.password,  # ← временно, в продакшене — хешируйте!
         "balance": 500,
         "total_win": 0,
         "level": 0,
@@ -229,7 +237,7 @@ async def login(auth: AuthRequest, response: Response):
     data = load_data()
     if auth.name not in data["users"]:
         raise HTTPException(status_code=400, detail="Игрок не найден")
-    if data["users"][auth.name]["pass"] != auth.pass:
+    if data["users"][auth.name]["pass"] != auth.password:
         raise HTTPException(status_code=400, detail="Неверный пароль")
     response.set_cookie(key="session", value=auth.name, httponly=True, max_age=86400)
     return {"status": "ok"}
@@ -273,24 +281,48 @@ async def open_case(request: Request, case: CaseRequest):
     completed = len(achievements)
     
     reward = 0
-    if case.caseId == "case1" and completed >= 3 and "case1" not in user.get("cases", []):
+    if case.caseId == "case1" and completed >= 3 and case.caseId not in user.get("cases", []):
         reward = 500
-    elif case.caseId == "case2" and completed >= 6 and "case2" not in user.get("cases", []):
+    elif case.caseId == "case2" and completed >= 6 and case.caseId not in user.get("cases", []):
         reward = 1000
     else:
         raise HTTPException(status_code=400, detail="Нельзя открыть")
     
-    if "cases" not in user:
-        user["cases"] = []
-    user["cases"].append(case.caseId)
+    user.setdefault("cases", []).append(case.caseId)
     user["balance"] += reward
     save_data(data)
     return {"reward": reward}
 
+# =============== ЭНДПОИНТЫ ТОПОВ ===============
+@app.get("/api/top/x")
+async def top_x():
+    data = load_data()
+    # Сортируем по x убыванию, берём топ-20
+    sorted_top = sorted(data.get("top_x", []), key=lambda x: x["x"], reverse=True)
+    return sorted_top[:20]
+
+@app.get("/api/top/balance")
+async def top_balance():
+    data = load_data()
+    balances = [
+        {"name": name, "balance": user["balance"]}
+        for name, user in data["users"].items()
+    ]
+    return sorted(balances, key=lambda x: x["balance"], reverse=True)[:20]
+
+@app.get("/api/top/level")
+async def top_level():
+    data = load_data()
+    levels = [
+        {"name": name, "level": user.get("level", 0)}
+        for name, user in data["users"].items()
+    ]
+    return sorted(levels, key=lambda x: x["level"], reverse=True)[:20]
+
 # =============== АДМИНКА ===============
 @app.post("/api/admin/login")
 async def admin_login(auth: AuthRequest):
-    if auth.pass == "supersecret":  # ← СМЕНИ НА СВОЙ!
+    if auth.password == "supersecret":  # ← СМЕНИ НА СВОЙ!
         return {"token": "admin_token_123"}
     raise HTTPException(status_code=401, detail="Неверный пароль")
 
@@ -299,15 +331,15 @@ async def admin_players(token: str):
     if token != "admin_token_123":
         raise HTTPException(status_code=401, detail="Нет доступа")
     data = load_data()
-    players = []
-    for name, user in data["users"].items():
-        players.append({
+    return [
+        {
             "name": name,
             "balance": user["balance"],
             "level": user.get("level", 0),
             "total_win": user.get("total_win", 0)
-        })
-    return players
+        }
+        for name, user in data["users"].items()
+    ]
 
 @app.post("/api/admin/give")
 async def admin_give(token: str, action: AdminAction):
@@ -336,14 +368,10 @@ async def admin_stats(token: str):
     if token != "admin_token_123":
         raise HTTPException(status_code=401, detail="Нет доступа")
     data = load_data()
-    total_bets = sum(len(r.get("bets", [])) for r in data.get("rounds", []))
-    total_payout = sum(
-        bet["amount"] * (getattr(current_round, "multiplier", 1) if not bet.get("cashed") else 1)
-        for bet in current_round.get("bets", [])
-    )
+    total_players = len(data["users"])
+    total_promo_used = sum(len(v["used"]) for v in data["promo_codes"].values())
     return {
-        "total_players": len(data["users"]),
-        "total_bets": total_bets,
-        "total_payout": total_payout,
-        "promo_usage": {k: len(v["used"]) for k, v in data["promo_codes"].items()}
+        "total_players": total_players,
+        "promo_usage": {k: len(v["used"]) for k, v in data["promo_codes"].items()},
+        "total_promo_used": total_promo_used,
     }
