@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Crash — NEON Online</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg1:#000000;
+  --bg2:#000000;
+  --panel:#0f0f0f;
+  --muted:#a0a0a0;
+  --neon-main:#4fe6ff;
+  --neon-accent:#4f9ef5;
+  --neon-alt:#8a5cff;
+  --danger:#ff4d4f;
+  --radius:12px;
+  --text-main:#ffffff;
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  font-family:Inter,system-ui,Segoe UI,Roboto,Arial;
+  color:var(--text-main);
+  background: var(--bg1);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  min-height:100vh;
+}
+
+header{
+  width:100%;
+  padding:10px 0;
+  text-align:center;
+  font-weight:900;
+  font-size:18px;
+  color:var(--neon-main);
+  letter-spacing:0.5px;
+}
+
+main{
+  width:100%;
+  max-width:1000px;
+  display:grid;
+  grid-template-columns:1fr;
+  gap:16px;
+  padding:12px 8px 80px;
+}
+
+.game-panel{
+  background:var(--panel);
+  border-radius:var(--radius);
+  padding:12px;
+  border:1px solid rgba(255,255,255,0.05);
+  box-shadow:0 12px 40px rgba(0,0,0,0.7);
+}
+
+#grid{
+  position:relative;
+  width:100%;
+  height:400px;
+  border-radius:10px;
+  overflow:hidden;
+  background:var(--bg2);
+  border:1px solid rgba(255,255,255,0.05);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+#multTop{
+  position:absolute;
+  left:12px;
+  top:12px;
+  z-index:60;
+  font-weight:800;
+  font-size:20px;
+  color:var(--neon-main);
+  text-shadow:0 4px 20px rgba(79,158,245,0.12);
+}
+#xHistory{
+  position:absolute;
+  left:12px;
+  top:38px;
+  z-index:60;
+  color:var(--muted);
+  font-size:11px;
+}
+#status{
+  position:absolute;
+  left:12px;
+  bottom:12px;
+  z-index:60;
+  color:var(--muted);
+  font-size:13px;
+  font-weight:600;
+}
+
+/* 🚀 РАКЕТА (изображение вместо чёрного квадрата) */
+#rocket{
+  position:absolute;
+  width:220px;
+  height:220px;
+  background-image:url("https://optim.tildacdn.com/tild3435-6666-4636-a166-386136336631/-/resize/694x/-/format/webp/raketa_1.png.webp");
+  background-size:contain;
+  background-repeat:no-repeat;
+  transform:scale(1);
+  z-index:50;
+  opacity:0;
+  transition: transform 300ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity 700ms;
+  filter: drop-shadow(0 6px 20px rgba(79,230,255,0.3));
+  transform-origin: center;
+}
+.rocket-show{opacity:1;}
+
+#rocketX{
+  position:absolute;
+  z-index:90;
+  font-weight:800;
+  color:var(--neon-main);
+  font-size:18px;
+  text-shadow:0 4px 20px rgba(79,158,245,0.12);
+  pointer-events:none;
+}
+
+#explosion{
+  position:absolute;
+  z-index:80;
+  font-size:72px;
+  display:none;
+  pointer-events:none;
+  filter:drop-shadow(0 16px 32px rgba(255,100,40,0.45));
+}
+#crashText{
+  position:absolute;
+  z-index:85;
+  display:none;
+  font-weight:800;
+  color:var(--danger);
+  font-size:28px;
+  text-shadow:0 8px 32px rgba(255,60,60,0.18);
+}
+
+#countdownOverlay{
+  position:absolute;
+  inset:0;
+  z-index:120;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  pointer-events:none;
+}
+#countdownBox{
+  background:rgba(0,0,0,0.75);
+  padding:18px 28px;
+  border-radius:12px;
+  text-align:center;
+  pointer-events:none;
+  border:1px solid rgba(255,255,255,0.05);
+}
+#countNumber{
+  font-weight:800;
+  font-size:72px;
+  color:var(--neon-accent);
+  text-shadow:0 8px 32px rgba(79,158,245,0.12);
+  transform:scale(1);
+  transition:transform 260ms ease-in-out;
+}
+
+.control-panel{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.card{
+  background:var(--panel);
+  border-radius:var(--radius);
+  padding:12px;
+  border:1px solid rgba(255,255,255,0.05);
+  font-size:13px;
+}
+.balance-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+}
+.balance-amount{
+  font-weight:800;
+  font-size:18px;
+  color:var(--neon-main);
+  display:flex;
+  align-items:center;
+  gap:4px;
+}
+.small{
+  font-size:11px;
+  color:var(--muted);
+}
+input[type=number], input[type=text], input[type=password]{
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.1);
+  color:var(--text-main);
+  padding:10px 12px;
+  border-radius:8px;
+  width:100%;
+  font-size:14px;
+}
+.actions{
+  display:flex;
+  gap:8px;
+  margin-top:8px;
+  flex-wrap:wrap;
+}
+.btn{
+  padding:10px 14px;
+  border-radius:8px;
+  border:none;
+  cursor:pointer;
+  font-weight:800;
+  font-size:14px;
+  letter-spacing:0.2px;
+}
+.primary{
+  background:linear-gradient(90deg,var(--neon-accent),var(--neon-alt));
+  color:#08101a;
+  box-shadow:0 8px 24px rgba(79,158,245,0.12);
+}
+.primary:hover{
+  transform:translateY(-2px);
+  box-shadow:0 16px 40px rgba(79,158,245,0.18);
+}
+.ghost{
+  background:transparent;
+  border:1px solid rgba(255,255,255,0.1);
+  color:var(--text-main);
+  font-size:13px;
+  padding:8px 12px;
+}
+
+#authModal{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:400;
+  background:rgba(0,0,0,0.85);
+}
+.auth-box{
+  width:90%;
+  max-width:400px;
+  border-radius:12px;
+  padding:20px;
+  background:var(--panel);
+  border:1px solid rgba(255,255,255,0.1);
+  box-shadow:0 20px 60px rgba(0,0,0,0.9);
+}
+
+.shake{animation:shake 300ms linear}
+@keyframes shake{
+  0%{transform:translateX(0)}
+  25%{transform:translateX(-4px)}
+  50%{transform:translateX(4px)}
+  75%{transform:translateX(-2px)}
+  100%{transform:translateX(0)}
+}
+
+.profile-panel,
+.top-panel{
+  margin-top:12px;
+  background:var(--panel);
+  border-radius:var(--radius);
+  padding:12px;
+  border:1px solid rgba(255,255,255,0.05);
+}
+.profile-tabs{
+  display:flex;
+  gap:6px;
+  margin-bottom:10px;
+  overflow-x:auto;
+}
+.profile-tab{
+  padding:6px 10px;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:12px;
+  font-weight:600;
+  color:var(--muted);
+  border:1px solid transparent;
+  white-space:nowrap;
+}
+.profile-tab.active{
+  color:var(--neon-main);
+  border-color:rgba(79,230,255,0.3);
+  background:rgba(79,230,255,0.05);
+}
+.profile-content,
+.top-content{
+  max-height:400px;
+  overflow-y:auto;
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.5;
+}
+
+.achievement, .case-item{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:6px 0;
+  padding:6px;
+  border-radius:8px;
+  background:rgba(255,255,255,0.02);
+  font-size:16px;
+}
+.achievement span, .case-item span{
+  font-size:20px;
+}
+
+#notification{
+  position:fixed;
+  top:16px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,0.85);
+  color:var(--neon-main);
+  padding:10px 18px;
+  border-radius:8px;
+  z-index:1000;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 300ms;
+  font-size:14px;
+  max-width:80%;
+  text-align:center;
+}
+</style>
+</head>
+<body>
+<header>Crash — NEON Online</header>
+
+<div id="notification"></div>
+
+<main>
+  <section class="game-panel">
+    <div id="grid" aria-live="polite">
+      <div id="multTop">1.00x</div>
+      <div id="xHistory">История: —</div>
+      <div id="status">Ожидание раунда...</div>
+      <div id="rocket"></div>
+      <div id="rocketX">1.00x</div>
+      <div id="explosion">💥</div>
+      <div id="crashText"></div>
+      <div id="countdownOverlay" style="display:none">
+        <div id="countdownBox">
+          <div id="countText" style="font-size:14px;color:var(--muted);margin-bottom:6px">Раунд начнётся через</div>
+          <div id="countNumber">5</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:12px">
+      <div class="small">Ставки игроков</div>
+      <div class="small" id="roundTimer">—</div>
+    </div>
+    <div id="playersList" class="card" style="max-height:100px;overflow:auto">
+      <div id="playerList">Пока никто не ставил</div>
+    </div>
+
+    <div class="card" style="margin-top:8px">
+      <div id="historyBox" style="margin-top:6px;font-size:12px;color:var(--muted)"></div>
+    </div>
+  </section>
+
+  <aside class="control-panel">
+    <div class="card">
+      <div class="balance-row">
+        <div>
+          <div class="small">Баланс</div>
+          <div class="balance-amount" id="balance">0</div>
+        </div>
+        <div style="text-align:right">
+          <div class="small">Профиль</div>
+          <div id="profileName">—</div>
+        </div>
+      </div>
+
+      <div style="margin-top:8px">
+        <div class="small">Ставка (мин 10)</div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <input id="inpBet" type="number" min="10" value="10">
+          <button class="btn ghost" id="btnMax" style="padding:8px 10px;font-size:13px">Макс</button>
+        </div>
+      </div>
+
+      <div style="margin-top:8px">
+        <div class="small">Авто-вывод (x)</div>
+        <div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
+          <input id="inpAuto" type="number" step="0.1" min="1.1" value="2.0" disabled style="width:auto">
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer">
+            <input type="checkbox" id="autoEnabled" style="width:12px;height:12px">
+            Вкл.
+          </label>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="btnPlace">Сделать ставку</button>
+        <button class="btn primary" id="btnCash" disabled>Забрать</button>
+        <button class="btn ghost" id="btnProfile">Профиль</button>
+        <button class="btn ghost" id="btnTop">ТОП</button>
+      </div>
+    </div>
+
+    <!-- ПРОФИЛЬ -->
+    <div class="card" id="profilePanel" style="display:none;margin-top:12px">
+      <div class="profile-tabs">
+        <div class="profile-tab active" data-tab="history">📜 История</div>
+        <div class="profile-tab" data-tab="achievements">🏆 Достижения</div>
+        <div class="profile-tab" data-tab="levels">📈 Уровни</div>
+        <div class="profile-tab" data-tab="cases">🎁 Кейсы</div>
+      </div>
+      <div class="profile-content" id="profileContent">
+        <div id="profileHistory">
+          <div id="localHistory" style="max-height:200px;overflow:auto;color:var(--muted);font-size:12px;margin-top:6px"></div>
+        </div>
+        <div id="profileAchievements" style="display:none;"></div>
+        <div id="profileLevels" style="display:none;"></div>
+        <div id="profileCases" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- ПРОМОКОДЫ -->
+    <div class="card" style="margin-top:12px">
+      <div class="small">🎟️ Промокод</div>
+      <input type="text" id="inpPromo" placeholder="Введите промокод" style="margin-top:6px">
+      <button class="btn primary" id="btnApplyPromo" style="margin-top:8px;width:100%">Применить</button>
+      <div id="promoStatus" class="small" style="margin-top:6px"></div>
+    </div>
+
+    <!-- ТОП -->
+    <div class="top-panel" id="topPanel" style="display:none">
+      <div class="top-content" id="topContent">
+        Загрузка...
+      </div>
+    </div>
+
+    <div style="height:80px;"></div>
+  </aside>
+</main>
+
+<div id="authModal">
+  <div class="auth-box" id="authBox">
+    <h3 style="color:var(--neon-main);margin:0 0 8px 0;font-size:18px">Вход / Регистрация</h3>
+    <div><input id="loginName" placeholder="Имя" style="margin-bottom:8px"></div>
+    <div><input id="loginPass" type="password" placeholder="Пароль"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn primary" id="btnLogin" style="flex:1;min-width:100px">Войти</button>
+      <button class="btn ghost" id="btnRegister" style="flex:1;min-width:100px">Регистрация</button>
+    </div>
+  </div>
+</div>
+<script>
+// ================= CONFIG =================
+const API_URL = 'https://crash-bot-pioy.onrender.com';
+const MIN_BET = 10;
+const BET_WINDOW_SEC = 6;
+const COUNTDOWN_BEFORE_START = 5;
+const WAIT_AFTER_CRASH_MS = 5500;
+const visualMaxX = 300;
+const baseRate = 0.006;
+const speedBefore2xMultiplier = 5 * 2;
+const speedAfter2xMultiplier = 4 * 2;
+
+const PROMOS = {
+  "2026": { amount: 500 },
+  "2025": { amount: 500 },
+  "6.12": { amount: 250 },
+  "+10": { amount: 250 },
+  "250": { amount: 250 }
+};
+
+const LEVEL_REQUIREMENTS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000];
+const LEVEL_REWARDS = [5, 10, 20, 40, 80, 100, 150, 200, 250, 300];
+
+const ACHIEVEMENTS = {
+  lucky1: { name: "Удачливый", desc: "Забрать X > 5", requiredX: 5, emoji: "★" },
+  lucky2: { name: "Удачливый II", desc: "Забрать X > 10", requiredX: 10, emoji: "🍀" },
+  lucky3: { name: "Удачливый III", desc: "Забрать X > 50", requiredX: 50, emoji: "♣️" },
+  profit1: { name: "Прибыль 1", desc: "Чистыми 1000", requiredProfit: 1000, emoji: "🎁" },
+  profit2: { name: "Прибыль 2", desc: "Чистыми 5000", requiredProfit: 5000, emoji: "⭐" },
+  profit3: { name: "Прибыль 3", desc: "Чистыми 10000", requiredProfit: 10000, emoji: "🏛️" }
+};
+
+const CASES = [
+  { id: 'case1', name: "Кейс 1", desc: "За 3 достижения", requiredAchievements: 3, reward: 500, emoji: "📦" },
+  { id: 'case2', name: "Кейс 2", desc: "За 6 достижений", requiredAchievements: 6, reward: 1000, emoji: "🎁" }
+];
+
+// ================= STATE =================
+let currentUser = null;
+let balance = 0;
+let playersThisRound = [];
+let inFlight = false;
+let multiplier = 1;
+let rafId = null;
+let lastTs = null;
+let crashAt = 0;
+let xHistory = [];
+let phase = 'idle';
+let betCountdownTimer = null;
+let roundTimerInterval = null;
+
+// ================= DOM =================
+const notification = document.getElementById('notification');
+const authModal = document.getElementById('authModal');
+const authBox = document.getElementById('authBox');
+const loginName = document.getElementById('loginName');
+const loginPass = document.getElementById('loginPass');
+const btnLogin = document.getElementById('btnLogin');
+const btnRegister = document.getElementById('btnRegister');
+const grid = document.getElementById('grid');
+const rocket = document.getElementById('rocket');
+const rocketX = document.getElementById('rocketX');
+const explosion = document.getElementById('explosion');
+const crashText = document.getElementById('crashText');
+const multTop = document.getElementById('multTop');
+const xHistoryEl = document.getElementById('xHistory');
+const statusEl = document.getElementById('status');
+const countOverlay = document.getElementById('countdownOverlay');
+const countNumber = document.getElementById('countNumber');
+const balanceEl = document.getElementById('balance');
+const profileNameEl = document.getElementById('profileName');
+const inpBet = document.getElementById('inpBet');
+const btnMax = document.getElementById('btnMax');
+const inpAuto = document.getElementById('inpAuto');
+const autoEnabled = document.getElementById('autoEnabled');
+const btnPlace = document.getElementById('btnPlace');
+const btnCash = document.getElementById('btnCash');
+const btnProfile = document.getElementById('btnProfile');
+const btnTop = document.getElementById('btnTop');
+const profilePanel = document.getElementById('profilePanel');
+const profileContent = document.getElementById('profileContent');
+const profileHistory = document.getElementById('profileHistory');
+const profileAchievements = document.getElementById('profileAchievements');
+const profileLevels = document.getElementById('profileLevels');
+const profileCases = document.getElementById('profileCases');
+const localHistory = document.getElementById('localHistory');
+const historyBox = document.getElementById('historyBox');
+const roundTimer = document.getElementById('roundTimer');
+const topPanel = document.getElementById('topPanel');
+const topContent = document.getElementById('topContent');
+const inpPromo = document.getElementById('inpPromo');
+const btnApplyPromo = document.getElementById('btnApplyPromo');
+const promoStatus = document.getElementById('promoStatus');
+
+// ================= UTILS =================
+function showNotification(text) {
+  notification.textContent = text;
+  notification.style.opacity = '1';
+  setTimeout(() => { notification.style.opacity = '0'; }, 3000);
+}
+
+async function apiCall(endpoint, method = 'GET', body = null) {
+  const url = `${API_URL}/api${endpoint}`;
+  const options = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+  };
+  if (body) options.body = JSON.stringify(body);
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(await res.text() || 'Ошибка сервера');
+  return res.json();
+}
+
+// ================= PROFILE TABS =================
+document.querySelectorAll('.profile-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const target = tab.dataset.tab;
+    profileHistory.style.display = target === 'history' ? 'block' : 'none';
+    profileAchievements.style.display = target === 'achievements' ? 'block' : 'none';
+    profileLevels.style.display = target === 'levels' ? 'block' : 'none';
+    profileCases.style.display = target === 'cases' ? 'block' : 'none';
+    if (target === 'achievements') renderAchievements();
+    if (target === 'levels') renderLevels();
+    if (target === 'cases') renderCases();
+  });
+});
+
+btnTop.addEventListener('click', () => {
+  topPanel.style.display = topPanel.style.display === 'none' || topPanel.style.display === '' ? 'block' : 'none';
+  if (topPanel.style.display === 'block') renderTopList();
+  if (profilePanel.style.display === 'block') profilePanel.style.display = 'none';
+});
+
+btnProfile.addEventListener('click', () => {
+  profilePanel.style.display = profilePanel.style.display === 'none' ? 'block' : 'none';
+  if (topPanel.style.display === 'block') topPanel.style.display = 'none';
+  renderLocalHistory();
+  renderLevels();
+  renderAchievements();
+  renderCases();
+});
+
+autoEnabled.addEventListener('change', () => {
+  inpAuto.disabled = !autoEnabled.checked;
+});
+
+// ================= AUTH =================
+async function loadUserData() {
+  try {
+    const user = await apiCall('/user');
+    currentUser = user.name;
+    balance = user.balance;
+    uiUpdateBalance();
+    profileNameEl.textContent = user.name;
+    
+    const histDiv = document.getElementById('localHistory');
+    histDiv.innerHTML = (user.history || []).slice(0,100).map(line => {
+      const d = document.createElement('div');
+      d.textContent = line;
+      d.style.fontSize = '12px';
+      d.style.color = '#a0a0a0';
+      d.style.padding = '4px 0';
+      return d.outerHTML;
+    }).join('');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function register(name, pass) {
+  try {
+    await apiCall('/auth/register', 'POST', { name, password: pass });
+    await login(name, pass);
+  } catch (e) {
+    showNotification('❌ ' + (e.message || 'Ошибка'));
+  }
+}
+
+async function login(name, pass) {
+  try {
+    await apiCall('/auth/login', 'POST', { name, password: pass });
+    await loadUserData();
+    authModal.style.display = 'none';
+    renderXHistory();
+    setTimeout(() => startBetPhase(), 250);
+  } catch (e) {
+    authBox.classList.add('shake');
+    setTimeout(() => authBox.classList.remove('shake'), 300);
+  }
+}
+
+// ================= LEVELS & ACHIEVEMENTS =================
+function grantAchievement(key, user) {
+  if (!user.achievements) user.achievements = {};
+  const ach = ACHIEVEMENTS[key];
+  if (user.achievements[key]) return;
+  user.achievements[key] = true;
+  saveUser(user);
+  showNotification(`🏆 Достижение: ${ach.name}!`);
+}
+
+function addWinAmount(amount, user) {
+  if (!user.totalWin) user.totalWin = 0;
+  user.totalWin += amount;
+  let level = 0;
+  for (let i = 0; i < LEVEL_REQUIREMENTS.length; i++) {
+    if (user.totalWin >= LEVEL_REQUIREMENTS[i]) {
+      level = i + 1;
+    } else break;
+  }
+  const oldLevel = user.level || 0;
+  user.level = level;
+  saveUser(user);
+  if (level > oldLevel) {
+    showNotification(`🎉 Новый уровень! Уровень ${level}`);
+    const reward = LEVEL_REWARDS[level - 1] || 0;
+    if (reward > 0) {
+      user.balance += reward;
+      saveUser(user);
+      uiUpdateBalance();
+      showNotification(`💰 Награда за уровень: +${reward} монет`);
+    }
+  }
+}
+
+function saveUser(user) {
+  // This is handled by the server, so we just reload
+  loadUserData();
+}
+
+function renderLevels() {
+  apiCall('/user').then(user => {
+    const level = user.level || 0;
+    const totalWin = user.total_win || 0;
+    const nextReq = level < 10 ? LEVEL_REQUIREMENTS[level] : 'MAX';
+    const progress = level < 10 ? `${totalWin.toFixed(2)} / ${nextReq}` : 'MAX';
+    const roman = ['I','II','III','IV','V','VI','VII','VIII','IX','X'][level - 1] || level;
+    profileLevels.innerHTML = `
+      <div>Уровень: <b>${level}</b> (${roman})</div>
+      <div style="margin-top:8px;padding:6px;background:rgba(255,255,255,0.02);border-radius:8px;font-size:12px">
+        Прогресс: ${progress}
+      </div>
+    `;
+  });
+}
+
+function renderAchievements() {
+  apiCall('/user').then(user => {
+    const ach = user.achievements || {};
+    let html = '';
+    for (const key in ACHIEVEMENTS) {
+      const a = ACHIEVEMENTS[key];
+      const earned = ach[key] || false;
+      html += `
+        <div class="achievement" style="${earned ? 'border:1px solid var(--neon-main);' : 'opacity:0.5;'}">
+          <span>${a.emoji}</span>
+          <div>
+            <div><b>${a.name}</b> ${earned ? '✅' : ''}</div>
+            <div class="small">${a.desc}</div>
+          </div>
+        </div>
+      `;
+    }
+    profileAchievements.innerHTML = html;
+  });
+}
+
+function renderCases() {
+  apiCall('/user').then(user => {
+    const achievements = user.achievements || {};
+    const completed = Object.keys(achievements).length;
+    let html = '';
+    
+    CASES.forEach(c => {
+      const earned = (user.cases || []).includes(c.id);
+      const canClaim = completed >= c.requiredAchievements && !earned;
+      
+      html += `
+        <div class="case-item" style="${completed >= c.requiredAchievements ? 'border:1px solid var(--neon-main);' : 'opacity:0.5;'}">
+          <span>${c.emoji}</span>
+          <div>
+            <div><b>${c.name}</b> ${earned ? '✅' : ''}</div>
+            <div class="small">${c.desc} (${completed}/${c.requiredAchievements})</div>
+          </div>
+          ${canClaim ? `<button class="btn primary" onclick="claimCase('${c.id}', ${c.reward})" style="font-size:12px;padding:4px 8px;margin-left:8px;">Забрать ${c.reward} 💎</button>` : ''}
+        </div>
+      `;
+    });
+    
+    profileCases.innerHTML = html;
+  });
+}
+
+async function claimCase(caseId, reward) {
+  try {
+    await apiCall('/case', 'POST', { caseId });
+    await loadUserData();
+    showNotification(`🎉 Кейс открыт! +${reward} монет`);
+  } catch (e) {
+    showNotification('❌ ' + (e.message || 'Ошибка'));
+  }
+}
+
+// ================= PROMO =================
+async function applyPromo(code) {
+  try {
+    const data = await apiCall('/promo', 'POST', { code: code.trim() });
+    await loadUserData();
+    promoStatus.textContent = `✅ +${data.amount} 💎`;
+  } catch (e) {
+    promoStatus.textContent = '❌ ' + (e.message || 'Неверный промокод');
+  }
+}
+
+// ================= UI =================
+function uiUpdateBalance(){
+  balanceEl.innerHTML = `${balance.toFixed(2)} <span style="font-size:18px">💎</span>`;
+  profileNameEl.textContent = currentUser || '—';
+}
+function renderXHistory(){
+  if(!xHistory.length){ xHistoryEl.innerHTML = 'История: —'; return; }
+  xHistoryEl.innerHTML = 'История: ' + xHistory.map(x=>{
+    const v = parseFloat(x);
+    let color = v < 2 ? '#ff5252' : v < 10 ? '#ffcc00' : '#4cd964';
+    return `<span style="color:${color};font-weight:800;margin-right:8px">${v}x</span>`;
+  }).join('');
+}
+function renderLocalHistory(){
+  // Already handled in loadUserData
+}
+function renderTopList(){
+  apiCall('/top/x').then(data => {
+    topContent.innerHTML = data.map((item, i) => `<div>${i+1}. ${item.name} — <b>${item.x.toFixed(2)}x</b></div>`).join('') || 'Пусто';
+  }).catch(e => topContent.innerHTML = 'Ошибка');
+}
+function renderTopBalanceList(){
+  apiCall('/top/balance').then(data => {
+    topContent.innerHTML = data.map((item, i) => `<div>${i+1}. ${item.name} — <b>${item.balance.toFixed(2)}</b></div>`).join('') || 'Пусто';
+  }).catch(e => topContent.innerHTML = 'Ошибка');
+}
+function renderTopLevelList(){
+  apiCall('/top/level').then(data => {
+    topContent.innerHTML = data.map((item, i) => `<div>${i+1}. ${item.name} — <b>Уровень ${item.level}</b></div>`).join('') || 'Пусто';
+  }).catch(e => topContent.innerHTML = 'Ошибка');
+}
+
+// ================= GAME =================
+function generateCrashPoint(){
+  const r = Math.random();
+  if(r < 0.80) return Number((1 + Math.random()*1.5).toFixed(2));
+  if(r < 0.98) return Number((2.5 + Math.random()*47.5).toFixed(2));
+  return Number((50 + Math.random()*(visualMaxX-50)).toFixed(2));
+}
+
+function startBetPhase(){
+  if(betCountdownTimer) clearInterval(betCountdownTimer);
+  phase = 'bet';
+  inFlight = false;
+  multiplier = 1;
+  crashAt = generateCrashPoint();
+  playersThisRound = [];
+  playersList.innerHTML = '<div id="playerList">Пока nobody не ставил</div>';
+  statusEl.textContent = `Приём ставок — ${BET_WINDOW_SEC}s`;
+  rocket.classList.remove('rocket-show');
+  rocket.style.opacity = '0';
+  rocketX.style.opacity = '0';
+  explosion.style.display = 'none';
+  crashText.style.display = 'none';
+  btnPlace.disabled = false;
+  btnCash.disabled = true;
+  roundTimer.textContent = BET_WINDOW_SEC + 's';
+
+  let betSec = BET_WINDOW_SEC;
+  roundTimerInterval = setInterval(() => {
+    roundTimer.textContent = betSec + 's';
+    if(--betSec < 0) clearInterval(roundTimerInterval);
+  }, 1000);
+
+  startCountdown(COUNTDOWN_BEFORE_START, () => {
+    rocket.classList.add('rocket-show');
+    rocket.style.opacity = '1';
+    rocketX.style.opacity = '1';
+    setTimeout(()=> startFlight(), 300);
+  });
+}
+
+function startCountdown(seconds, onComplete){
+  countOverlay.style.display = 'flex';
+  let t = seconds;
+  countNumber.textContent = t;
+  const tick = setInterval(()=>{
+    t--;
+    if(t>0){
+      countNumber.style.transform = 'scale(1.25)';
+      setTimeout(()=>countNumber.style.transform='scale(1)',120);
+      countNumber.textContent = t;
+    } else {
+      clearInterval(tick);
+      countOverlay.style.display = 'none';
+      if(onComplete) onComplete();
+    }
+  },1000);
+}
+
+function startFlight(){
+  phase = 'flight';
+  inFlight = true;
+  btnPlace.disabled = true;
+  btnCash.disabled = !playersThisRound.some(p => p.name === currentUser);
+  statusEl.textContent = `В полёте...`;
+  lastTs = null;
+
+  function rafLoop(ts){
+    if(!lastTs) lastTs = ts;
+    const dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+
+    let r = multiplier < 2 ? baseRate * speedBefore2xMultiplier : baseRate * speedAfter2xMultiplier + Math.min(0.02, (multiplier - 2) * 0.0009);
+    multiplier = Math.max(1, multiplier * (1 + r * dt));
+
+    multTop.textContent = multiplier.toFixed(2) + 'x';
+    rocketX.textContent = multiplier.toFixed(2) + 'x';
+
+    const visualScale = 1 + Math.min(2, (multiplier - 1) / 10);
+    rocket.style.transform = `translate(-50%, -50%) scale(${visualScale})`;
+    rocket.style.left = '50%';
+    rocket.style.bottom = '50%';
+    rocketX.style.transform = `translate(-50%, -50%) scale(${Math.min(1.5, visualScale)})`;
+    rocketX.style.left = '50%';
+    rocketX.style.bottom = '50%';
+
+    if(autoEnabled.checked){
+      const autoVal = parseFloat(inpAuto.value) || 0;
+      if(autoVal >= 1.1){
+        const my = playersThisRound.find(p => p.name === currentUser && !p.cashed);
+        if(my && multiplier >= autoVal) doCashOut(my);
+      }
+    }
+
+    if(multiplier >= parseFloat(crashAt)){
+      doCrash(multiplier);
+      return;
+    }
+
+    rafId = requestAnimationFrame(rafLoop);
+  }
+
+  rafId = requestAnimationFrame(rafLoop);
+}
+
+async function doCashOut(playerObj){
+  if(!inFlight || !playerObj || playerObj.cashed) return;
+  try {
+    const data = await apiCall('/round/cashout', 'POST');
+    await loadUserData();
+    const logMsg = `✅ Вывел ${data.win.toFixed(2)} (x ${data.multiplier.toFixed(2)})`;
+    const histDiv = document.createElement('div');
+    histDiv.textContent = logMsg;
+    histDiv.style.fontSize = '12px';
+    histDiv.style.color = '#a0a0a0';
+    histDiv.style.padding = '4px 0';
+    historyBox.prepend(histDiv);
+    
+    // Check achievements
+    if(data.multiplier > 5) grantAchievement('lucky1', {name: currentUser});
+    if(data.multiplier > 10) grantAchievement('lucky2', {name: currentUser});
+    if(data.multiplier > 50) grantAchievement('lucky3', {name: currentUser});
+    
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function doCrash(actualMultiplier){
+  if(rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+  inFlight = false;
+  phase = 'crash';
+
+  explosion.style.left = '50%';
+  explosion.style.bottom = '50%';
+  explosion.style.transform = 'translate(-50%, 50%)';
+  explosion.style.display = 'block';
+
+  crashText.style.left = '50%';
+  crashText.style.bottom = '40%';
+  crashText.style.transform = 'translateX(-50%)';
+  crashText.textContent = `CRASH ${actualMultiplier.toFixed(2)}x`;
+  crashText.style.display = 'block';
+
+  grid.classList.add('shake');
+  setTimeout(()=> grid.classList.remove('shake'), 360);
+
+  // Update history on server
+  apiCall('/round').then(data => {
+    xHistory = data.xHistory || [];
+    renderXHistory();
+  });
+
+  setTimeout(()=> { explosion.style.display = 'none'; }, 900);
+
+  setTimeout(()=> {
+    crashText.style.display = 'none';
+    rocket.style.transform = 'scale(1)';
+    rocketX.style.opacity = '0';
+    setTimeout(()=> {
+      rocket.classList.remove('rocket-show');
+      startBetPhase();
+    }, 800);
+  }, WAIT_AFTER_CRASH_MS);
+}
+
+// ================= BUTTONS =================
+document.getElementById('btnMax').addEventListener('click', ()=>{
+  const bal = balance;
+  let desired = Math.max(MIN_BET, Math.floor(bal));
+  if(desired < MIN_BET) desired = MIN_BET;
+  inpBet.value = desired;
+});
+
+btnPlace.addEventListener('click', async ()=>{
+  if(phase !== 'bet'){ alert('Ставки только в приёме'); return; }
+  if(playersThisRound.some(p => p.name === currentUser)){ alert('Уже ставили'); return; }
+  const v = parseFloat(inpBet.value) || 0;
+  if(v < MIN_BET){ alert(`Минимум ${MIN_BET}`); return; }
+  if(v > balance){ alert('Недостаточно'); return; }
+
+  try {
+    await apiCall('/round/bet', 'POST', { amount: v });
+    balance -= v;
+    uiUpdateBalance();
+    playersThisRound.push({ name: currentUser, amount: v, cashed: false });
+    if(document.getElementById('playerList')) document.getElementById('playerList').remove();
+    const d = document.createElement('div');
+    d.className = 'player-row';
+    d.innerHTML = `<span style="font-weight:900">${currentUser}</span><span>${v.toFixed(2)}</span>`;
+    playersList.appendChild(d);
+    const logMsg = `${new Date().toLocaleString()} — Поставил ${v.toFixed(2)}`;
+    const histDiv = document.createElement('div');
+    histDiv.textContent = logMsg;
+    histDiv.style.fontSize = '12px';
+    histDiv.style.color = '#a0a0a0';
+    histDiv.style.padding = '4px 0';
+    historyBox.prepend(histDiv);
+  } catch (e) {
+    alert('❌ ' + (e.message || 'Ошибка'));
+  }
+});
+
+btnCash.addEventListener('click', ()=>{
+  const my = playersThisRound.find(p => p.name === currentUser && !p.cashed);
+  if(!my){ alert('Нет ставки'); return; }
+  doCashOut(my);
+});
+
+btnApplyPromo.addEventListener('click', () => {
+  const code = inpPromo.value;
+  if (!currentUser) {
+    promoStatus.textContent = '❌ Войдите в аккаунт';
+    return;
+  }
+  if (!code) {
+    promoStatus.textContent = 'Введите промокод';
+    return;
+  }
+  applyPromo(code);
+});
+
+// ================= AUTH EVENTS =================
+btnRegister.addEventListener('click', () => {
+  const name = loginName.value.trim();
+  const pass = loginPass.value.trim();
+  if (!name || !pass) { alert('Введите имя и пароль'); return; }
+  register(name, pass);
+});
+
+btnLogin.addEventListener('click', () => {
+  const name = loginName.value.trim();
+  const pass = loginPass.value.trim();
+  if (!name || !pass) { alert('Введите имя и пароль'); return; }
+  login(name, pass);
+});
+
+// ================= INIT =================
+// Check if already logged in
+apiCall('/user').then(user => {
+  currentUser = user.name;
+  balance = user.balance;
+  uiUpdateBalance();
+  profileNameEl.textContent = user.name;
+  authModal.style.display = 'none';
+  renderXHistory();
+  setTimeout(() => startBetPhase(), 250);
+}).catch(() => {
+  authModal.style.display = 'flex';
+});
+
+// Load round data every 500ms
+setInterval(async () => {
+  try {
+    const data = await apiCall('/round');
+    crashAt = data.crashX || 0;
+    xHistory = data.xHistory || [];
+    renderXHistory();
+
+    if (data.status === 'bet' && phase !== 'bet') {
+      startBetPhase();
+    } else if (data.status === 'flight' && phase !== 'flight') {
+      startFlight();
+    } else if (data.status === 'crash' && phase !== 'crash') {
+      doCrash(crashAt);
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}, 500);
+</script>
+</body>
+</html>
