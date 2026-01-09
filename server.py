@@ -5,14 +5,16 @@ import json
 import os
 import random
 import asyncio
-import time
 
 app = FastAPI()
 
-# CORS — only Netlify
+# CORS — allow both Netlify (old) and Render (new)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://crash-finerx.netlify.app"],
+    allow_origins=[
+        "https://crash-finerx.netlify.app",
+        "https://crash-bot-backend.onrender.com"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -91,11 +93,7 @@ async def game_loop():
                     current_round["multiplier"] = 1.0
 
             elif current_round["status"] == "flight":
-                # Multiplier will be controlled by frontend timing
-                # But we still need to detect crash
                 await asyncio.sleep(0.1)
-                # In this version, crash is triggered by frontend calling /cashout or timeout
-                # So we don't update multiplier here
 
             await asyncio.sleep(0.5)
         except Exception as e:
