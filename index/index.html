@@ -100,7 +100,6 @@ main{
   font-weight:600;
 }
 
-/* 🚀 РАКЕТА (изображение вместо чёрного квадрата) */
 #rocket{
   position:absolute;
   width:220px;
@@ -417,7 +416,6 @@ input[type=number], input[type=text], input[type=password]{
       </div>
     </div>
 
-    <!-- ПРОФИЛЬ -->
     <div class="card" id="profilePanel" style="display:none;margin-top:12px">
       <div class="profile-tabs">
         <div class="profile-tab active" data-tab="history">📜 История</div>
@@ -435,7 +433,6 @@ input[type=number], input[type=text], input[type=password]{
       </div>
     </div>
 
-    <!-- ПРОМОКОДЫ -->
     <div class="card" style="margin-top:12px">
       <div class="small">🎟️ Промокод</div>
       <input type="text" id="inpPromo" placeholder="Введите промокод" style="margin-top:6px">
@@ -443,7 +440,6 @@ input[type=number], input[type=text], input[type=password]{
       <div id="promoStatus" class="small" style="margin-top:6px"></div>
     </div>
 
-    <!-- ТОП -->
     <div class="top-panel" id="topPanel" style="display:none">
       <div class="top-content" id="topContent">
         Загрузка...
@@ -467,7 +463,7 @@ input[type=number], input[type=text], input[type=password]{
 </div>
 <script>
 // ================= CONFIG =================
-const API_URL = 'https://crash-bot-pioy.onrender.com';
+const API_URL = 'https://crash-bot-pioy.onrender.com'; // ✅ FIXED: no trailing spaces
 const MIN_BET = 10;
 const BET_WINDOW_SEC = 6;
 const COUNTDOWN_BEFORE_START = 5;
@@ -694,7 +690,6 @@ function addWinAmount(amount, user) {
 }
 
 function saveUser(user) {
-  // This is handled by the server, so we just reload
   loadUserData();
 }
 
@@ -796,7 +791,6 @@ function renderXHistory(){
   }).join('');
 }
 function renderLocalHistory(){
-  // Already handled in loadUserData
 }
 function renderTopList(){
   apiCall('/top/x').then(data => {
@@ -931,7 +925,6 @@ async function doCashOut(playerObj){
     histDiv.style.padding = '4px 0';
     historyBox.prepend(histDiv);
     
-    // Check achievements
     if(data.multiplier > 5) grantAchievement('lucky1', {name: currentUser});
     if(data.multiplier > 10) grantAchievement('lucky2', {name: currentUser});
     if(data.multiplier > 50) grantAchievement('lucky3', {name: currentUser});
@@ -961,7 +954,6 @@ function doCrash(actualMultiplier){
   grid.classList.add('shake');
   setTimeout(()=> grid.classList.remove('shake'), 360);
 
-  // Update history on server
   apiCall('/round').then(data => {
     xHistory = data.xHistory || [];
     renderXHistory();
@@ -1052,7 +1044,6 @@ btnLogin.addEventListener('click', () => {
 });
 
 // ================= INIT =================
-// Check if already logged in
 apiCall('/user').then(user => {
   currentUser = user.name;
   balance = user.balance;
@@ -1065,7 +1056,6 @@ apiCall('/user').then(user => {
   authModal.style.display = 'flex';
 });
 
-// Load round data every 500ms
 setInterval(async () => {
   try {
     const data = await apiCall('/round');
