@@ -70,11 +70,11 @@ def save_data(data):
 # Глобальное состояние игры
 current_round = {
     "id": 1,
-    "status": "bet",
+    "status": "bet",          # bet / flight / crash
     "bets": [],
     "crash_at": None,
     "multiplier": 1.0,
-    "started_at": None,  # ← КЛЮЧЕВОЕ: изначально None
+    "started_at": None,
     "bet_time": 6,
 }
 # Генерация точки краша
@@ -104,12 +104,12 @@ async def game_loop():
                 if current_round["bet_time"] <= 0:
                     current_round["status"] = "flight"
                     current_round["crash_at"] = generate_crash_point()
-                    current_round["started_at"] = time.time()  # ← УСТАНАВЛИВАЕТСЯ ТОЛЬКО ЗДЕСЬ
+                    current_round["started_at"] = time.time()
                     current_round["multiplier"] = 1.0
 
             elif current_round["status"] == "flight":
                 if current_round["started_at"] is None:
-                    current_round["started_at"] = time.time()  # ← Защита от бага
+                    current_round["started_at"] = time.time()
                 elapsed = time.time() - current_round["started_at"]
                 current_round["multiplier"] = calculate_multiplier(elapsed)
                 if current_round["multiplier"] >= current_round["crash_at"]:
@@ -131,7 +131,7 @@ async def game_loop():
                         "bets": [],
                         "crash_at": None,
                         "multiplier": 1.0,
-                        "started_at": None,  # ← СБРОС
+                        "started_at": None,
                         "bet_time": 6,
                     }
             await asyncio.sleep(0.5)
@@ -168,7 +168,7 @@ def place_bet(request: Request, bet: BetRequest):
     save_data(data)
     return {"status": "ok"}
 
-@app.post("/api/round/cashout")  # ← POST, а не GET!
+@app.post("/api/round/cashout")
 def cash_out(request: Request):
     session = request.cookies.get("session")
     if not session:
